@@ -236,12 +236,12 @@ footer b{color:#fff}
 
 <script>
 const ARTISTS=[
- {n:"Peter Manjarrés",k:["manjarres"],q:"Peter Manjarres",star:1},
- {n:"Diego Daza",k:["diego daza"],q:"Diego Daza",star:1},
+ {n:"Peter Manjarrés",k:["peter manjarres"],q:"Peter Manjarres"},
+ {n:"Diego Daza",k:["diego daza"],q:"Diego Daza"},
  {n:"Erick Escobar",k:["erick escobar"],q:"Erick Escobar"},
- {n:"Karina Gonzales",k:["karina gonzal"],q:"Karina Gonzales"},
+ {n:"Karina Gonzales",k:["karina gonzales","karina gonzalez"],q:"Karina Gonzalez"},
  {n:"Alejo Urrea",k:["alejo urrea"],q:"Alejo Urrea"},
- {n:"El Clooy",k:["clooy"],q:"El Clooy"},
+ {n:"El Clooy",k:["el clooy"],q:"El Clooy"},
  {n:"DJ Gordillo",k:["dj gordillo"],q:"DJ Gordillo"},
  {n:"Pacho Mango",k:["pacho mango"],q:"Pacho Mango"},
  {n:"Luis Cueto",k:["luis cueto"],q:"Luis Cueto"}
@@ -326,9 +326,12 @@ function jsonp(url){return new Promise((res,rej)=>{const cb="cb"+Math.random().t
 async function fetchArtist(a){
  if(cache[a.n])return cache[a.n];
  const base="https://itunes.apple.com/search?country=co&limit=50&term="+encodeURIComponent(a.q);
- const ok=r=>a.k.some(k=>norm(r.artistName).includes(k));
  let v=[],m=[];
  try{const[x,y]=await Promise.all([jsonp(base+"&entity=musicVideo"),jsonp(base+"&entity=song")]);
+  const all=[...(x.results||[]),...(y.results||[])];
+  // Solo el artista exacto: se toma su ID de Apple Music y se descartan homónimos y elencos (ej. musicales)
+  const ids=new Set(all.filter(r=>a.k.includes(norm(r.artistName).trim())).map(r=>r.artistId));
+  const ok=ids.size?r=>ids.has(r.artistId):r=>a.k.some(k=>norm(r.artistName).startsWith(k));
   v=(x.results||[]).filter(r=>ok(r)&&r.previewUrl);m=(y.results||[]).filter(r=>ok(r)&&r.previewUrl);}catch(e){}
  const uniq=arr=>{const s=new Set();return arr.filter(r=>{const k=norm(r.trackName);if(s.has(k))return 0;s.add(k);return 1})};
  v=uniq(v).slice(0,12);m=uniq(m).slice(0,15);
