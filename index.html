@@ -326,20 +326,25 @@ const cache={};
 function jsonp(url){return new Promise((res,rej)=>{const cb="cb"+Math.random().toString(36).slice(2);const s=document.createElement("script");const to=setTimeout(()=>{delete window[cb];s.remove();rej("timeout")},12000);window[cb]=d=>{clearTimeout(to);delete window[cb];s.remove();res(d)};s.onerror=()=>{clearTimeout(to);rej("err")};s.src=url+"&callback="+cb;document.body.appendChild(s)})}
 async function fetchArtist(a){
  if(cache[a.n])return cache[a.n];
- try{const sv=JSON.parse(localStorage.getItem("am2:"+a.n)||"null");if(sv&&Date.now()-sv.t<864e5)return cache[a.n]=sv.d}catch(e){}
+ try{const sv=JSON.parse(localStorage.getItem("am3:"+a.n)||"null");if(sv&&Date.now()-sv.t<864e5)return cache[a.n]=sv.d}catch(e){}
  const base="https://itunes.apple.com/search?country=co&limit=50&term="+encodeURIComponent(a.q);
  let v=[],m=[];
  try{const[x,y]=await Promise.all([jsonp(base+"&entity=musicVideo"),jsonp(base+"&entity=song")]);
   const all=[...(x.results||[]),...(y.results||[])];
   // Solo el artista exacto: se toma su ID de Apple Music y se descartan homónimos y elencos (ej. musicales)
-  const ids=new Set(all.filter(r=>a.k.includes(norm(r.artistName).trim())).map(r=>r.artistId));
-  const ok=ids.size?r=>ids.has(r.artistId):r=>a.k.some(k=>norm(r.artistName).startsWith(k));
+  // Fuera musicales, parodias y bandas sonoras (homónimos de otros países)
+  const BAD=/parod|musical|soundtrack|banda sonora|broadway|cast of|karaoke|tribute|tributo/;
+  const okGen=r=>!BAD.test(norm((r.collectionName||"")+" "+(r.primaryGenreName||"")+" "+(r.trackName||"")));
+  // Si hay varios artistas con el mismo nombre, se queda con el que más canciones tiene
+  const cnt={};all.filter(r=>okGen(r)&&a.k.includes(norm(r.artistName).trim())).forEach(r=>cnt[r.artistId]=(cnt[r.artistId]||0)+1);
+  const best=Object.keys(cnt).sort((p,q)=>cnt[q]-cnt[p])[0];
+  const ok=best?r=>String(r.artistId)===best&&okGen(r):r=>okGen(r)&&a.k.some(k=>norm(r.artistName).startsWith(k));
   v=(x.results||[]).filter(r=>ok(r)&&r.previewUrl);m=(y.results||[]).filter(r=>ok(r)&&r.previewUrl);}catch(e){}
  const uniq=arr=>{const s=new Set();return arr.filter(r=>{const k=norm(r.trackName);if(s.has(k))return 0;s.add(k);return 1})};
  v=uniq(v).slice(0,12);m=uniq(m).slice(0,15);
  const art=(m[0]||v[0]||{}).artworkUrl100;
  const d={v,m,img:art?art.replace("100x100bb","600x600bb"):null};
- if(v.length||m.length){try{localStorage.setItem("am2:"+a.n,JSON.stringify({t:Date.now(),d}))}catch(e){}return cache[a.n]=d}
+ if(v.length||m.length){try{localStorage.setItem("am3:"+a.n,JSON.stringify({t:Date.now(),d}))}catch(e){}return cache[a.n]=d}
  return d; // vacío: no se guarda, se reintenta al abrir
 }
 const big=u=>u?u.replace("100x100bb","400x400bb"):"img/logo.jpg";
